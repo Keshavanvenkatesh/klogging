@@ -22,7 +22,6 @@ class logger:
         self.max_size = max_size
 
     def logging(self, file_to_log="logging.txt"):
-        """Decorator to log function calls"""
         def decorator(func):
             def wrapper(*args, **kwargs):
                 timestamp = datetime.datetime.now()
@@ -53,16 +52,58 @@ class logger:
             return wrapper
         return decorator
 
-    def log_info(self, msg, PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
+    def _get_timestamp():
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def log_info(self, msg,function_name="unknown", arguments="[None]", return_value="None", 
+                PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
         """Write manual info logs"""
         logger.rotate_log(file_to_log, self.max_size)
 
-        content = PREFIX + "[INFO] " + str(self.name) + " >>> " + msg + " " + POSTFIX
+        timestamp = logger._get_timestamp()
+        content = (f"{PREFIX}[INFO] {timestamp} >>> logger:{self.name} "
+                f">>> function:{function_name}({arguments}) "
+                f":return({return_value}): {msg} {POSTFIX}")
+
         if logger.is_log_full(file_to_log, self.max_size):
             logger.handle_log_full(content)
         else:
             with open(file_to_log, "a") as file:
                 file.write(content + "\n")
+
+    def log_warning(self, msg, function_name="unknown", arguments="[None]", return_value="None", 
+                    PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
+        """Write manual warnings logs"""
+        logger.rotate_log(file_to_log, self.max_size)
+
+        timestamp = logger._get_timestamp()
+        content = (f"{PREFIX}[WARNING] {timestamp} >>> logger:{self.name} "
+                f">>> function:{function_name}({arguments}) "
+                f":return({return_value}): {msg} {POSTFIX}")
+
+        if logger.is_log_full(file_to_log, self.max_size):
+            logger.handle_log_full(content)
+        else:
+            with open(file_to_log, "a") as file:
+                file.write(content + "\n")
+
+
+    def log_error(self, msg, function_name="unknown", arguments="[None]", return_value="None", 
+                PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
+        """Write manual error logs"""
+        logger.rotate_log(file_to_log, self.max_size)
+
+        timestamp = logger._get_timestamp()
+        content = (f"{PREFIX}[ERROR] {timestamp} >>> logger:{self.name} "
+                f">>> function:{function_name}({arguments}) "
+                f":return({return_value}): {msg} {POSTFIX}")
+
+        if logger.is_log_full(file_to_log, self.max_size):
+            logger.handle_log_full(content)
+        else:
+            with open(file_to_log, "a") as file:
+                file.write(content + "\n")
+
 
     def show_logs(self, log_file="logging.txt"):
         """Display logs for this logger"""
@@ -159,11 +200,12 @@ class logger:
     def help():
         print("""
 🔹 Logger Class Help 🔹
-- Logs function calls, arguments, return values, and errors
-- Manual log messages
+- Logs function calls, arguments, return values, and errors (with timestamp)
+- Manual log messages (info, warning, error)
 - Turn logs ON/OFF per logger or globally
 - View logs for one logger or all
 - Automatic file rotation when log file exceeds size limit
+- Testcase generation (random and specific)
 
 Usage:
     logger_instance = logger('my_logger', max_size=2048)
@@ -174,15 +216,26 @@ Usage:
 
 Methods:
  - logging(file_to_log="logging.txt") → Decorator for logging function calls
- - log_info(msg, PREFIX="\\t", POSTFIX="", file_to_log="logging.txt") → Manual info
+ - log_info(msg, PREFIX="\\t", POSTFIX="", file_to_log="logging.txt") → Manual info (includes args + return + timestamp)
+ - log_warning(msg, PREFIX="\\t", POSTFIX="", file_to_log="logging.txt") → Manual warning (includes args + return + timestamp)
+ - log_error(msg, PREFIX="\\t", POSTFIX="", file_to_log="logging.txt", arguments="[None]", return_value="None") → Manual error
  - show_logs(log_file="logging.txt") → Show logs for this logger
  - show_all_logs(log_file="logging.txt") → Show all logs
  - show_logger() → Show all created loggers
  - turn_on_log() / turn_off_log() → Enable/disable logging for this logger
  - turn_on_all_logs() / turn_off_all_logs() → Enable/disable all loggers
  - rotate_log(file="logging.txt", max_size=N) → Rotate file if it exceeds N bytes
+
+Testcase Utilities:
+ - test_function(func, examples, count=5) → Auto-generate random testcases
+ - generate_specific_testcase(example, range_) → Generate testcases with specific ranges
+     * example: structure of input (e.g., (123, [4,5], {"a": 1}))
+     * range_: matching list of constraints (e.g., [3, [2,2], [3]])
+ - checktype(obj) → Internal utility to infer type structure
+
  - help() → Show this help
 """)
+
 
 # =================== Example Usage ===================
 
