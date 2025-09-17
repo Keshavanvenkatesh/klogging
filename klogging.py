@@ -141,7 +141,7 @@ class logger:
 
     # ---------------------- Log Viewing ----------------------
 
-    def show_logs(self, log_file="logging.txt"):
+    def show_logs(self, log_file="logging.txt"):         # rotate file to look for all the logs
         """Display logs for this logger only"""
         if not os.path.exists(log_file):
             print("THE LOG IS EMPTY !!!")
@@ -166,7 +166,7 @@ class logger:
         print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
 
     @staticmethod
-    def show_all_logs(log_file="logging.txt"):
+    def show_all_logs(log_file="logging.txt"):       # rotate file to look for all the logs
         """Display all logs"""
         if not os.path.exists(log_file):
             print("THE LOG IS EMPTY !!!")
@@ -190,7 +190,7 @@ class logger:
         
 ######################################################################################################################
     @staticmethod
-    def show_all_error(log_file="logging.txt"):
+    def show_all_error(log_file="logging.txt"):      # rotate file to look for all the logs
         """Display all error logs"""
         if not os.path.exists(log_file):
             print("THE LOG IS EMPTY !!!")
@@ -216,7 +216,7 @@ class logger:
         print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
     
     @staticmethod
-    def show_all_warning(log_file="logging.txt"):
+    def show_all_warning(log_file="logging.txt"):        # rotate file to look for all the logs
         """Display all error logs"""
         if not os.path.exists(log_file):
             print("THE LOG IS EMPTY !!!")
@@ -242,7 +242,7 @@ class logger:
         print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
     
     @staticmethod
-    def show_all_info(log_file="logging.txt"):
+    def show_all_info(log_file="logging.txt"):       # rotate file to look for all the logs
         """Display all error logs"""
         if not os.path.exists(log_file):
             print("THE LOG IS EMPTY !!!")
