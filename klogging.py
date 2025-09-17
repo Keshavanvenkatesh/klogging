@@ -1,13 +1,15 @@
 from datetime import datetime
 import os
+import glob
 
 class logger:
 
     logger_name_list = []
     dupilicate_logger_counter = 1
     can_i_write_logs = True
+    files_rotated=0
 
-    def __init__(self, name, max_size=1048576, file_to_log="logging.txt"):  # default 1 MB
+    def __init__(self, name, max_size=1048576, file_to_log="logging.txt"): 
         base_name = str(name)
 
         if logger.check_logger_duplicate_name(base_name):
@@ -18,11 +20,12 @@ class logger:
             self.name = base_name
 
         logger.logger_name_list.append(self.name)
+
         self.can_i_write_logs = True
         self.max_size = max_size
         self.file_to_log = file_to_log
 
-    # ---------------------- Helper Methods ----------------------
+# ---------------------- Helper Methods ----------------------
 
     @staticmethod
     def _get_timestamp():
@@ -30,20 +33,47 @@ class logger:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     @staticmethod
-    def is_log_full(file="logging.txt", max_size=1048576):
+    def is_log_full(file="logging.txt", max_size=1048576):              # this returns true if the file size is greater than max_size
         size = os.path.getsize(file) if os.path.exists(file) else 0
         return size > max_size   # changed from >=
-
+    
     @staticmethod
-    def rotate_log(file="logging.txt", max_size=1048576):
-        """Rotate the log file if it exceeds max_size"""
-        if os.path.exists(file) and os.path.getsize(file) > max_size:  # changed from >=
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            new_name = f"{file}_{timestamp}.bak"
-            os.rename(file, new_name)
-            print(f"🔄 Log rotated: {new_name}")
+    def rotate_log(file, max_size=1048576):
+   
+        """
+        Rotate the log file if it exceeds max_size.
+        - Renames the old log with an incrementing suffix
+        - Creates a fresh new file with the same base name
+        """
 
+        if os.path.exists(file) and os.path.getsize(file) > max_size:
 
+            # Increment rotation counter
+            logger.files_rotated += 1
+
+            # Extract folder and base name
+            folder = os.path.dirname(file)
+            if folder == "":
+                folder = "."  # current dir
+            base = os.path.basename(file)
+
+            # New rotated name
+            rotated_name = os.path.join(folder, f"{base}_{logger.files_rotated}.bak")
+
+            # Rename old file
+            os.rename(file, rotated_name)
+            print(f"Log rotated: {rotated_name}")
+
+            # Create a fresh empty log file
+            with open(file, "w") as new_file:
+                new_file.write(f"=== New log file created after rotation #{logger.files_rotated} ===\n")
+
+        elif (not os.path.exists(file)):
+            with open(file, "w") as new_file:
+                new_file.write(f"=== New log file created ===\n")
+        else:
+            raise RuntimeError
+    
     @staticmethod
     def handle_log_full(content):
         print("=================== LOG IS FULL ===================")
@@ -64,6 +94,7 @@ class logger:
                     log = (f"[NO ERROR] {timestamp} >>> logger:{self.name} "
                            f">>> function:{function_name}({arguments}) "
                            f":return({result}): no error")
+                    
                 except Exception as e:
                     result = None
                     log = (f"[ERROR] {timestamp} >>> logger:{self.name} "
@@ -85,12 +116,12 @@ class logger:
                 return result
             return wrapper
         return decorator
-
+    
     # ---------------------- Manual Logs ----------------------
 
     def log_info(self, msg, function_name="unknown", arguments="[None]", return_value="None",
                  PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
-        """Write manual info log"""
+
         if logger.is_log_full(file_to_log, self.max_size):
             logger.rotate_log(file_to_log, self.max_size)
 
@@ -98,13 +129,13 @@ class logger:
         content = (f"{PREFIX}[INFO] {timestamp} >>> logger:{self.name} "
                    f">>> function:{function_name}({arguments}) "
                    f":return({return_value}): {msg} {POSTFIX}")
-
+       
         if logger.is_log_full(file_to_log, self.max_size):
             logger.handle_log_full(content)
         else:
             with open(file_to_log, "a") as file:
                 file.write(content + "\n")
-
+    
     def log_warning(self, msg, function_name="unknown", arguments="[None]", return_value="None",
                     PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
         """Write manual warning log"""
@@ -139,135 +170,133 @@ class logger:
             with open(file_to_log, "a") as file:
                 file.write(content + "\n")
 
-    # ---------------------- Log Viewing ----------------------
-
-    def show_logs(self, log_file="logging.txt"):         # rotate file to look for all the logs
-        """Display logs for this logger only"""
-        if not os.path.exists(log_file):
-            print("THE LOG IS EMPTY !!!")
-            return
-
-        with open(log_file) as file:
-            lines = file.readlines()
-
-        if not lines:
-            print("THE LOG IS EMPTY !!!")
-            return
-
-        max_length = max(len(line) for line in lines)
-        start_of_log = " start of log "
-        end_of_log = " end of log "
-
-        print("=" * int((max_length - len(start_of_log)) / 2) + start_of_log + "=" * int((max_length - len(start_of_log)) / 2))
-        logger_name_in_file = f"logger:{self.name}"
-        for line in lines:
-            if logger_name_in_file in line:
-                print(line.strip())
-        print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
+    # ---------------------- Log File Management ----------------------
 
     @staticmethod
-    def show_all_logs(log_file="logging.txt"):       # rotate file to look for all the logs
-        """Display all logs"""
-        if not os.path.exists(log_file):
-            print("THE LOG IS EMPTY !!!")
+    def clear_all_logs(file_to_log="logging.txt"):
+        """
+        Clears the contents of all logs (main + rotated), 
+        keeping the files but wiping their content.
+        """
+        files = sorted(glob.glob(file_to_log + "*"))
+        if not files:
+            print("No log files found.")
             return
 
-        with open(log_file) as file:
-            lines = file.readlines()
+        for f in files:
+            with open(f, "w") as file:
+                file.write(f"=== Log cleared at {logger._get_timestamp()} ===\n")
+        print(f"Cleared contents of {len(files)} log files.")
 
-        if not lines:
-            print("THE LOG IS EMPTY !!!")
+    @staticmethod
+    def delete_all_logs(file_to_log="logging.txt"):
+        """
+        Deletes all rotated logs and clears only the main log file.
+        """
+        files = sorted(glob.glob(file_to_log + "*"))
+        if not files:
+            print("No log files found.")
             return
 
-        max_length = max(len(line) for line in lines)
-        start_of_log = " start of log "
-        end_of_log = " end of log "
+        for f in files:
+            if f == file_to_log:  # keep main log
+                with open(f, "w") as file:
+                    file.write(f"=== Main log cleared at {logger._get_timestamp()} ===\n")
+            else:  # delete rotated logs
+                os.remove(f)
+                print(f"Deleted: {f}")
 
-        print("=" * int((max_length - len(start_of_log)) / 2) + start_of_log + "=" * int((max_length - len(start_of_log)) / 2))
-        for line in lines:
-            print(line.strip())
-        print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
+        print("Deleted rotated logs and cleared main log.")
+
+    # ================================================ printing methods for logs ======================================================
+
+    @staticmethod
+    def _truncate_line(entry, max_length=100):
+
+        if len(entry) > max_length:
+            return entry[:max_length] + "..."
+        return entry
+    
+    def show_logs(self, log_file="logging.txt", max_len=120):
         
-######################################################################################################################
+        files = sorted(glob.glob(log_file + "*"))  # logging.txt, logging.txt_1.bak, etc.
+        if not files:
+            print("THE LOG IS EMPTY !!!")
+            return
+
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    if f"logger:{self.name}" in line:
+                        print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
+
     @staticmethod
-    def show_all_error(log_file="logging.txt"):      # rotate file to look for all the logs
-        """Display all error logs"""
-        if not os.path.exists(log_file):
+    def show_all_logs(log_file="logging.txt", max_len=120):
+        
+        files = sorted(glob.glob(log_file + "*"))  # logging.txt, logging.txt_1.bak, etc.
+        if not files:
             print("THE LOG IS EMPTY !!!")
             return
 
-        with open(log_file) as file:
-            lines = file.readlines()
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
 
-        if not lines:
+# ================================================ static printing methods for logs ======================================================
+
+    @staticmethod
+    def show_all_error(log_file="logging.txt", max_len=120):
+        """Display all error logs (from all rotated files)"""
+        files = sorted(glob.glob(log_file + "*"))
+        if not files:
             print("THE LOG IS EMPTY !!!")
             return
 
-        max_length = max(len(line) for line in lines if "[ERROR]" in line)
-        start_of_log = " start of log "
-        end_of_log = " end of log "
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    if "[ERROR]" in line:
+                        print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
 
-        print("=" * int((max_length - len(start_of_log)) / 2) + start_of_log + "=" * int((max_length - len(start_of_log)) / 2))
-        for line in lines:
-            if "[ERROR]" in line:
-                print(line.strip())
-            else:
-                pass
-        print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
+    @staticmethod
+    def show_all_warning(log_file="logging.txt", max_len=120):
+        """Display all warning logs (from all rotated files)"""
+        files = sorted(glob.glob(log_file + "*"))
+        if not files:
+            print("THE LOG IS EMPTY !!!")
+            return
+
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    if "[WARNING]" in line:
+                        print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
+
+    @staticmethod
+    def show_all_info(log_file="logging.txt", max_len=120):
+        """Display all info logs (from all rotated files)"""
+        files = sorted(glob.glob(log_file + "*"))
+        if not files:
+            print("THE LOG IS EMPTY !!!")
+            return
+
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    if "[INFO]" in line:
+                        print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
     
-    @staticmethod
-    def show_all_warning(log_file="logging.txt"):        # rotate file to look for all the logs
-        """Display all error logs"""
-        if not os.path.exists(log_file):
-            print("THE LOG IS EMPTY !!!")
-            return
-
-        with open(log_file) as file:
-            lines = file.readlines()
-
-        if not lines:
-            print("THE LOG IS EMPTY !!!")
-            return
-
-        max_length = max(len(line) for line in lines if "[WARNING]" in line)
-        start_of_log = " start of log "
-        end_of_log = " end of log "
-
-        print("=" * int((max_length - len(start_of_log)) / 2) + start_of_log + "=" * int((max_length - len(start_of_log)) / 2))
-        for line in lines:
-            if "[WARNING]" in line:
-                print(line.strip())
-            else:
-                pass
-        print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
-    
-    @staticmethod
-    def show_all_info(log_file="logging.txt"):       # rotate file to look for all the logs
-        """Display all error logs"""
-        if not os.path.exists(log_file):
-            print("THE LOG IS EMPTY !!!")
-            return
-
-        with open(log_file) as file:
-            lines = file.readlines()
-
-        if not lines:
-            print("THE LOG IS EMPTY !!!")
-            return
-
-        max_length = max(len(line) for line in lines if "[INFO]" in line)
-        start_of_log = " start of log "
-        end_of_log = " end of log "
-
-        print("=" * int((max_length - len(start_of_log)) / 2) + start_of_log + "=" * int((max_length - len(start_of_log)) / 2))
-        for line in lines:
-            if "[INFO]" in line:
-                print(line.strip())
-            else:
-                pass
-        print("=" * int((max_length - len(end_of_log)) / 2) + end_of_log + "=" * int((max_length - len(end_of_log)) / 2))
-############################################################################################################################
-
     # ---------------------- Logger Management ----------------------
 
     @classmethod
@@ -294,75 +323,86 @@ class logger:
     def turn_on_all_logs(cls):
         cls.can_i_write_logs = True
 
-
     @staticmethod
     def help():
-        print(r"""
-🔹 Logger Class Help 🔹
-A custom Python logger with support for:
-- Automatic logging of function calls (decorators)
-- Error capturing with full trace of arguments/return values
-- Manual log entries: INFO, WARNING, ERROR
-- Log viewing (per logger, all logs, or filtered by level)
-- Automatic file rotation when log size exceeds a limit
-- Per-logger and global log ON/OFF switching
+        print("""
+     Logger Class Help 
 
-📌 Basic Usage:
-    my_logger = logger("example_logger", max_size=2048)  # 2 KB rotation
+A custom logging system with:
+- Function call logging (decorator-based)
+- Manual log messages (info, warning, error)
+- Automatic file rotation when exceeding max size
+- View logs (all, per logger, error/warning/info only)
+- Clear/delete log files
+- Toggle logging ON/OFF per logger or globally
+- Duplicate logger name handling
+
+    Usage:
+    my_logger = logger("example_logger", max_size=1024, file_to_log="logging.txt")
 
     @my_logger.logging()
     def add(a, b):
         return a + b
 
-    add(5, 2)  # auto-logged
-    my_logger.log_info("Manual info message")
-    my_logger.log_warning("Manual warning")
-    my_logger.log_error("Manual error")
+    add(5, 3)  # will log automatically
 
-🧰 Methods:
- - logging(file_to_log="logging.txt")   
-       → Decorator: auto-log function calls, args, return values, errors
+    Methods:
 
- - log_info(msg, ..., file_to_log="logging.txt")   
-       → Manual info log with timestamp, args, return value
- - log_warning(msg, ..., file_to_log="logging.txt")   
-       → Manual warning log
- - log_error(msg, ..., file_to_log="logging.txt")   
-       → Manual error log
+Logging
+ - logging(file_to_log="logging.txt")  
+      → Decorator for logging function calls
 
- - show_logs(log_file="logging.txt")   
-       → Display logs for this logger only
- - show_all_logs(log_file="logging.txt") [static]   
-       → Display all logs
- - show_all_info(log_file="logging.txt") [static]   
-       → Display only INFO logs
- - show_all_warning(log_file="logging.txt") [static]   
-       → Display only WARNING logs
- - show_all_error(log_file="logging.txt") [static]   
-       → Display only ERROR logs
+Manual Logs
+ - log_info(msg, function_name="...", arguments="...", return_value="...", file_to_log="...")  
+      → Write an info log  
+ - log_warning(...)  
+      → Write a warning log  
+ - log_error(...)  
+      → Write an error log  
 
- - show_logger() [class]   
-       → Show all created logger names
+Viewing Logs
+ - show_logs(log_file="logging.txt")  
+      → Show logs only for this logger (across rotated files too)  
+ - show_all_logs(log_file="logging.txt")  
+      → Show all logs from all files  
+ - show_all_error(log_file="logging.txt")  
+      → Show only error logs  
+ - show_all_warning(log_file="logging.txt")  
+      → Show only warning logs  
+ - show_all_info(log_file="logging.txt")  
+      → Show only info logs  
 
- - turn_on_log() / turn_off_log()   
-       → Enable/disable this logger
- - turn_on_all_logs() / turn_off_all_logs() [class]   
-       → Enable/disable all loggers
+Log File Management
+ - clear_all_logs(file_to_log="logging.txt")  
+      → Clears contents of ALL logs (main + rotated)  
+ - delete_all_logs(file_to_log="logging.txt")  
+      → Deletes all rotated logs, clears only main log  
 
- - rotate_log(file="logging.txt", max_size=N) [static]   
-       → Rotate log file when it exceeds N bytes (renames with timestamp)
+Management
+ - show_logger()  
+      → Show all created logger names  
+ - turn_on_log() / turn_off_log()  
+      → Enable/disable logging for this logger  
+ - turn_on_all_logs() / turn_off_all_logs()  
+      → Enable/disable all loggers  
 
-🧠 Notes:
- - Default log file: `logging.txt`
- - Default max size: `1 MB` (1048576 bytes), can be changed per logger
- - Duplicate names get numeric suffixes (logger1, logger2, …)
- - Logs include: timestamp, logger name, function, arguments, return, and error details
- - Rotation renames the full log file with a `.bak` timestamp and starts a new one
+Rotation & Limits
+ - rotate_log(file="logging.txt", max_size=N)  
+      → Rotates current log file when it exceeds N bytes  
+        (e.g., logging.txt → logging.txt_1.bak, logging.txt_2.bak, ...)  
+      → A new empty logging.txt file is created automatically  
+ - is_log_full(file="logging.txt", max_size=N)  
+      → Returns True if file size exceeds N bytes  
 
-👉 Call `logger.help()` anytime to show this guide.
+Notes:
+ - Default log file = logging.txt  
+ - Default max size = 1 MB  
+ - Rotated files are stored in the same directory with a `.bak` suffix  
+ - Printed logs truncate long lines (default: 120 chars)  
+ - Errors during decorated functions are caught and logged automatically  
 """)
 
-# =================== Example Usage ===================
+# =================== Example Usage ====================
 
 if __name__ == "__main__":
     # Create a logger with 1 KB max file size for testing rotation
