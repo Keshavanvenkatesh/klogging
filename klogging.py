@@ -328,6 +328,40 @@ class logger:
                         print(logger._truncate_line(line.strip(), max_len))
         print("end of log -----")
     
+    @staticmethod
+
+    def show_all_success(log_file="logging.txt", max_len=120):
+        """Display all success logs (from all rotated files)"""
+        files = sorted(glob.glob(log_file + "*"))
+        if not files:
+            print("THE LOG IS EMPTY !!!")
+            return
+
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    if "[SUCESSES]" in line:
+                        print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
+        
+    @staticmethod
+
+    def show_all_failed(log_file="logging.txt", max_len=120):
+        """Display all failed logs (from all rotated files)"""
+        files = sorted(glob.glob(log_file + "*"))
+        if not files:
+            print("THE LOG IS EMPTY !!!")
+            return
+
+        print("start of log -----")
+        for f in files:
+            with open(f) as file:
+                for line in file:
+                    if "[FAILED]" in line:
+                        print(logger._truncate_line(line.strip(), max_len))
+        print("end of log -----")
+    
     # ---------------------- Logger Management ----------------------
 
     @classmethod
@@ -390,6 +424,10 @@ Manual Logs
       → Write a warning log  
  - log_error(...)  
       → Write an error log  
+- log_passed(...)
+      → Write a success log
+- log_failed(...)
+      → Write a failed log
 
 Viewing Logs
  - show_logs(log_file="logging.txt")  
@@ -402,6 +440,10 @@ Viewing Logs
       → Show only warning logs  
  - show_all_info(log_file="logging.txt")  
       → Show only info logs  
+- show_all_success(log_file="logging.txt")
+      → Show only success logs
+- show_all_failed(log_file="logging.txt")
+      → Show only failed logs
 
 Log File Management
  - clear_all_logs(file_to_log="logging.txt")  
