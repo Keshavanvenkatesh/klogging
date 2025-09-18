@@ -170,6 +170,37 @@ class logger:
             with open(file_to_log, "a") as file:
                 file.write(content + "\n")
 
+    def log_passed(self, msg, function_name="unknown", arguments="[None]", return_value="None",
+                  PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
+        
+        if logger.is_log_full(file_to_log, self.max_size):
+            logger.rotate_log(file_to_log, self.max_size)
+
+        timestamp = logger._get_timestamp()
+        content = (f"{PREFIX}[SUCESSES] {timestamp} >>> logger:{self.name} "
+                   f">>> function:{function_name}({arguments}) "
+                   f":return({return_value}): {msg} {POSTFIX}")
+
+        if logger.is_log_full(file_to_log, self.max_size):
+            logger.handle_log_full(content)
+        else:
+            with open(file_to_log, "a") as file:
+                file.write(content + "\n")
+                
+    def log_failed(self, msg, function_name="unknown", arguments="[None]", return_value="None",
+                  PREFIX="\t", POSTFIX="", file_to_log="logging.txt"):
+        
+        if logger.is_log_full(file_to_log, self.max_size):
+            logger.rotate_log(file_to_log, self.max_size)
+        timestamp = logger._get_timestamp()
+        content = (f"{PREFIX}[FAILED] {timestamp} >>> logger:{self.name} "
+                   f">>> function:{function_name}({arguments}) "
+                   f":return({return_value}): {msg} {POSTFIX}")
+        if logger.is_log_full(file_to_log, self.max_size):
+            logger.handle_log_full(content)
+        else:
+            with open(file_to_log, "a") as file:
+                file.write(content + "\n")
     # ---------------------- Log File Management ----------------------
 
     @staticmethod
@@ -402,7 +433,7 @@ Notes:
  - Errors during decorated functions are caught and logged automatically  
 """)
 
-# =================== Example Usage ====================
+# =================== Example Usage ===================
 
 if __name__ == "__main__":
     # Create a logger with 1 KB max file size for testing rotation
